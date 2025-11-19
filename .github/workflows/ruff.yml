@@ -1,0 +1,46 @@
+name: Ruff
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: "check --output-format=github --verbose"
+
+      # - name: Cache pip dependencies
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: ~/.cache/pip
+      #     key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-pip-
+
+      # - name: Install dependencies
+      #   run: |
+      #     pip install -r requirements.txt
+
+      # - name: Install SAE package
+      #   run: |
+      #     pip install .
+
+      # - name: Run ruff linter
+      #   run: |
+      #     ruff check --output-format=github --verbose
+
+      # - name: Run ruff formatter
+      #   run: |
+      #     ruff format --check --diff --verbose
