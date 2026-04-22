@@ -4,7 +4,7 @@ SAE (Sparse Autoencoder) Package
 A package for efficient training of Sparse Autoencoders.
 """
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 # Provide lazy access to common subpackages to avoid circular imports at import time.
 # Usage preserved:

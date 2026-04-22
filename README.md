@@ -42,6 +42,14 @@ python -c "import fastsae, torch; print('fastsae', fastsae.__version__, '| cuda:
 👉 Follow [`examples/reproduce_patchsae/tutorial.ipynb`](examples/reproduce_patchsae/tutorial.ipynb). <br>
 This shows how to use FastSAE package by reproducing [PatchSAE](https://github.com/dynamical-inference/patchsae) paper.
 
+## 📝 Update Log
+
+### v0.1.3 (2026-04-22)
+- Fix ghost grad bug: use pre-activations (before ReLU) for dead neurons instead of post-activations, matching the PatchSAE reference. Previously, all dead neurons received `exp(0)=1`, collapsing `W_dec` directions.
+
+### v0.1.2 (2025-11-19)
+- Initial release.
+
 ## 🙏 Citation
 If you find our code or models useful in your work, please cite our paper:
 ```
