@@ -27,6 +27,7 @@ class MetricsOutput(NamedTuple):
     """
 
     l0: torch.Tensor
+    # top_idx: torch.Tensor
     explained_variance: torch.Tensor
     explained_variance_std: torch.Tensor
 
@@ -96,7 +97,7 @@ class SAETrainer(Configurable):
 
     # === Loss functions ===
 
-    def _mse_ghost_loss(self, z, z_hat, a, z_mse_loss):
+    def _mse_ghost_loss(self, z, z_hat, a_pre, z_mse_loss):
         self._ghost_grad_neuron_mask = dead_mask = (self._n_forward_passes_since_fired > self.dead_latent_window).bool()
 
         loss = torch.tensor(0.0, dtype=self.wrapped.dtype, device=self.wrapped.device)
@@ -106,13 +107,15 @@ class SAETrainer(Configurable):
             z_diff = (z - z_hat).detach().float()
             z_diff_l2_norm = torch.norm(z_diff, dim=-1)
 
-            # 2. Apply mask on the last dimension while preserving original shape
-            dead_mask_broadcast = dead_mask.view(*([1] * (a.ndim - 1)), -1)
-            dead_acts = torch.exp(a * dead_mask_broadcast)
-
-            # Equivalent to selecting only dead latents and multiplying by W_dec[dead_mask]
-            # because (A S)(S^T W) == A (S S^T) W where S selects dead columns
-            ghost_z_hat = dead_acts @ self.wrapped.sae.W_dec
+            # 2. Use pre-activations (before ReLU) for dead neurons only.
+            # Dead neurons have negative pre-activations, so exp(a_pre) gives small
+            # values in (0,1) — matching patchsae. Using post-ReLU activations would
+            # give exp(0)=1 for all dead neurons, collapsing all W_dec directions.
+            if a_pre.dim() == 3:
+                dead_acts = torch.exp(a_pre[:, :, dead_mask])
+            else:
+                dead_acts = torch.exp(a_pre[:, dead_mask])
+            ghost_z_hat = dead_acts @ self.wrapped.sae.W_dec[dead_mask, :]
             ghost_z_hat_l2_norm = torch.norm(ghost_z_hat, dim=-1)
 
             # 3.
@@ -126,10 +129,10 @@ class SAETrainer(Configurable):
 
         return loss
 
-    def loss_fn(self, z, a, z_hat):
+    def loss_fn(self, z, a, a_pre, z_hat):
         z_mse_loss = torch.pow((z_hat - z.float()), 2) / (z**2).sum(dim=-1, keepdim=True).sqrt()
         a_l1_loss = torch.abs(a).sum(dim=-1).mean(dim=(0,))
-        z_mse_ghost_loss = self._mse_ghost_loss(z, z_hat, a, z_mse_loss)
+        z_mse_ghost_loss = self._mse_ghost_loss(z, z_hat, a_pre, z_mse_loss)
 
         loss_dict = {
             "recon_loss": z_mse_loss.mean(),
@@ -138,6 +141,7 @@ class SAETrainer(Configurable):
         }
 
         return LossOutput(**loss_dict)
+
 
     def metric_fn(self, z, a, z_hat):
         a_l0 = (a > 0).float().sum(-1).mean()
@@ -268,10 +272,10 @@ class SAETrainer(Configurable):
 
                     # forward pass
                     z = self.wrapped.backbone.forward_to_z(backbone_inputs)
-                    z_hat, a = self.wrapped.sae(z)
+                    z_hat, a, a_pre = self.wrapped.sae(z, return_pre_act=True)
 
                     # compute loss
-                    loss_outputs = self.loss_fn(z, a, z_hat)
+                    loss_outputs = self.loss_fn(z, a, a_pre, z_hat)
                     loss = self.compute_total_loss(loss_outputs)
                     metrics_outputs = self.metric_fn(z, a, z_hat)
 

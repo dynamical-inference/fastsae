@@ -20,6 +20,7 @@ class VanillaSAE(ConfigurableTorchModule, nn.Module):
     architecture: str = config_field(default="vanilla")
     activation_name: str = config_field(default="relu")
     device: str = config_field(default="cuda")
+    # dtype: Optional[torch.dtype] = config_field(default=None) # TODO: non JSON serializable
     seed: Optional[int] = config_field(default=None)
     _verbose: bool = dataclasses.field(default_factory=verbose.verbose_factory)
 
@@ -55,6 +56,12 @@ class VanillaSAE(ConfigurableTorchModule, nn.Module):
             raise ValueError(f"Unknown activation: {name}")
 
         self.activation = _get_activation_fn(self.activation_name)
+
+        # layers = []
+        # layers.append(nn.Linear(self.d_in, self.d_sae, bias=True))
+        # layers.append(self.activation)
+        # layers.append(nn.Linear(self.d_sae, self.d_in, bias=True))
+        # self.model = nn.Sequential(*layers)
 
         if self._verbose:
             print("✅ SAE built successfully!")
@@ -200,14 +207,18 @@ class VanillaSAE(ConfigurableTorchModule, nn.Module):
         z: Tensor,
         steer_cfg: Optional[Dict[str, Any]] = None,
         return_act: bool = True,
+        return_pre_act: bool = False,
     ) -> Tuple[Tensor, Tensor] | Tensor:
         """
         z -> a -> (optional steering) -> z_hat
         """
-        a = self.encode(z)
+        a_pre = self._encode(z)
+        a = self.activation(a_pre)
         if steer_cfg is not None:
             a = self.steer(a, steer_cfg)
         z_hat = self.decode(a)
+        if return_pre_act:
+            return (z_hat, a, a_pre)
         return (z_hat, a) if return_act else z_hat
 
     # Optional helper for training losses
