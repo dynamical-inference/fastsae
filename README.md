@@ -1,5 +1,7 @@
 # 🏎️ FastSAE: Adopt seamlessly, train fast
 
+> 📚 FastSAE is the packaged successor to **[PatchSAE](https://github.com/dynamical-inference/patchsae)** (ICLR 2025), refactored for easier adoption. See the paper's reference implementation there, or jump straight into the tutorial below.
+
 ## 🛠 Getting Started
 
 Follow these steps to install and verify FastSAE.
